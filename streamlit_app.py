@@ -79,7 +79,7 @@ def cov_bounds(v1, v2):
 def conditional_cov_slider(label, key, var1, var2, default_val):
     disabled = var1 == 0 or var2 == 0
     if disabled:
-        st.slider(label, 0.0, 0.0, 0.0, disabled=True)
+        st.slider(label, -1, 1, 0, disabled=True)
         st.session_state[key] = 0.0
         return 0.0
     else:
@@ -91,6 +91,7 @@ def conditional_cov_slider(label, key, var1, var2, default_val):
             float(sget(key, default_val)),
             step=0.05,
             key=key,
+            disabled=False,
         )
 
 
