@@ -1,6 +1,6 @@
-import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
+import streamlit as st
 
 st.set_page_config(layout="wide")
 st.title("3D Covariance Explorer")
@@ -12,30 +12,41 @@ if "preset_clicked" not in st.session_state:
 # Shape presets
 PRESETS = {
     "Sphere": {
-        "var_x": 1.0, "var_y": 1.0, "var_z": 1.0,
-        "cov_xy": 0.0, "cov_xz": 0.0, "cov_yz": 0.0,
-        "desc": "All variances equal, no correlation. Produces a spherical cloud."
+        "var_x": 1.0,
+        "var_y": 1.0,
+        "var_z": 1.0,
+        "cov_xy": 0.0,
+        "cov_xz": 0.0,
+        "cov_yz": 0.0,
+        "desc": "All variances equal, no correlation. Produces a spherical cloud.",
     },
     "Cigar": {
-        "var_x": 3.0, "var_y": 0.2, "var_z": 0.2,
-        "cov_xy": 0.0, "cov_xz": 0.0, "cov_yz": 0.0,
-        "desc": "One axis dominates. Long and thin like a cigar."
+        "var_x": 3.0,
+        "var_y": 0.2,
+        "var_z": 0.2,
+        "cov_xy": 0.0,
+        "cov_xz": 0.0,
+        "cov_yz": 0.0,
+        "desc": "One axis dominates. Long and thin like a cigar.",
     },
     "Pancake": {
-        "var_x": 1.0, "var_y": 1.0, "var_z": 0.01,
-        "cov_xy": 0.0, "cov_xz": 0.0, "cov_yz": 0.0,
-        "desc": "One axis almost flat. Wide and thin like a pancake."
+        "var_x": 1.0,
+        "var_y": 1.0,
+        "var_z": 0.01,
+        "cov_xy": 0.0,
+        "cov_xz": 0.0,
+        "cov_yz": 0.0,
+        "desc": "One axis almost flat. Wide and thin like a pancake.",
     },
     "Egg": {
-        "var_x": 1.0, "var_y": 0.8, "var_z": 0.5,
-        "cov_xy": 0.4, "cov_xz": 0.2, "cov_yz": 0.1,
-        "desc": "Moderate correlation and uneven variance. Skewed ellipsoid."
+        "var_x": 1.0,
+        "var_y": 0.8,
+        "var_z": 0.5,
+        "cov_xy": 0.4,
+        "cov_xz": 0.2,
+        "cov_yz": 0.1,
+        "desc": "Moderate correlation and uneven variance. Skewed ellipsoid.",
     },
-    "Line": {
-        "var_x": 1.0, "var_y": 1.0, "var_z": 0.0,
-        "cov_xy": 1.0, "cov_xz": 0.0, "cov_yz": 0.0,
-        "desc": "Perfect correlation between X and Y, Z has zero variance. All points fall on a line."
-    }
 }
 
 # Button row
@@ -53,9 +64,11 @@ for i, (name, values) in enumerate(PRESETS.items()):
 # Main layout
 col1, col2 = st.columns([1, 3])
 
+
 # Helper: Safe get from session state or fallback
 def sget(name, default):
     return st.session_state.get(name, default)
+
 
 with col1:
     st.header("Parameters")
@@ -73,22 +86,46 @@ with col1:
     min_xz, max_xz = cov_bounds(var_x, var_z)
     min_yz, max_yz = cov_bounds(var_y, var_z)
 
-    cov_xy = st.slider("Covariance XY", float(min_xy), float(max_xy), float(sget("cov_xy", 0.0)), step=0.05, key="cov_xy")
-    cov_xz = st.slider("Covariance XZ", float(min_xz), float(max_xz), float(sget("cov_xz", 0.0)), step=0.05, key="cov_xz")
-    cov_yz = st.slider("Covariance YZ", float(min_yz), float(max_yz), float(sget("cov_yz", 0.0)), step=0.05, key="cov_yz")
+    cov_xy = st.slider(
+        "Covariance XY",
+        float(min_xy),
+        float(max_xy),
+        float(sget("cov_xy", 0.0)),
+        step=0.05,
+        key="cov_xy",
+    )
+    cov_xz = st.slider(
+        "Covariance XZ",
+        float(min_xz),
+        float(max_xz),
+        float(sget("cov_xz", 0.0)),
+        step=0.05,
+        key="cov_xz",
+    )
+    cov_yz = st.slider(
+        "Covariance YZ",
+        float(min_yz),
+        float(max_yz),
+        float(sget("cov_yz", 0.0)),
+        step=0.05,
+        key="cov_yz",
+    )
 
-    n_points = st.slider("Number of Points", 100, 2000, sget("n_points", 1000), step=100, key="n_points")
+    n_points = st.slider(
+        "Number of Points", 100, 2000, sget("n_points", 1000), step=100, key="n_points"
+    )
 
     if selected_preset:
-        st.markdown(f"**Shape:** {selected_preset}  \n{PRESETS[selected_preset]['desc']}")
+        st.markdown(
+            f"**Shape:** {selected_preset}  \n{PRESETS[selected_preset]['desc']}"
+        )
 
 # Covariance matrix
-cov_matrix = np.array([
-    [var_x, cov_xy, cov_xz],
-    [cov_xy, var_y, cov_yz],
-    [cov_xz, cov_yz, var_z]
-])
+cov_matrix = np.array(
+    [[var_x, cov_xy, cov_xz], [cov_xy, var_y, cov_yz], [cov_xz, cov_yz, var_z]]
+)
 mean = np.zeros(3)
+
 
 # Check for singularity
 def explain_singularity(cov):
@@ -106,9 +143,12 @@ def explain_singularity(cov):
 
     for i, j in [(0, 1), (0, 2), (1, 2)]:
         if is_perfect_corr(i, j):
-            reasons.append(f"- Axes {chr(88 + i)} and {chr(88 + j)} are perfectly correlated")
+            reasons.append(
+                f"- Axes {chr(88 + i)} and {chr(88 + j)} are perfectly correlated"
+            )
 
     return reasons
+
 
 try:
     np.linalg.cholesky(cov_matrix)
@@ -119,13 +159,21 @@ except np.linalg.LinAlgError:
     with col2:
         st.warning(
             "⚠️ The covariance matrix is **singular** or not positive semi-definite.\n\n"
-            "**Why?**\n" + ("\n".join(reasons) if reasons else "- Linear dependence or rounding errors") +
-            "\n\nPoints will still be shown, but the ellipsoid cannot be rendered."
+            "**Why?**\n"
+            + (
+                "\n".join(reasons)
+                if reasons
+                else "- Linear dependence or rounding errors"
+            )
+            + "\n\nPoints will still be shown, but the ellipsoid cannot be rendered."
         )
 
 # Generate sample points
-points = np.random.multivariate_normal(mean, cov_matrix, size=n_points, check_valid='warn', tol=1e-8)
+points = np.random.multivariate_normal(
+    mean, cov_matrix, size=n_points, check_valid="warn", tol=1e-8
+)
 x, y, z = points.T
+
 
 # Ellipsoid generator
 def generate_ellipsoid(mean, cov, scale=2.0, n_points=40):
@@ -140,31 +188,40 @@ def generate_ellipsoid(mean, cov, scale=2.0, n_points=40):
     ellipsoid = sphere @ np.diag(radii) @ vecs.T + mean
     return ellipsoid[..., 0], ellipsoid[..., 1], ellipsoid[..., 2]
 
+
 # Create plot
 fig = go.Figure()
 
-fig.add_trace(go.Scatter3d(
-    x=x, y=y, z=z,
-    mode='markers',
-    marker=dict(size=3, color='blue', opacity=0.6),
-    name="Sampled Points"
-))
+fig.add_trace(
+    go.Scatter3d(
+        x=x,
+        y=y,
+        z=z,
+        mode="markers",
+        marker=dict(size=3, color="blue", opacity=0.6),
+        name="Sampled Points",
+    )
+)
 
 if not singular:
     ex, ey, ez = generate_ellipsoid(mean, cov_matrix)
-    fig.add_trace(go.Surface(
-        x=ex, y=ey, z=ez,
-        opacity=0.2,
-        colorscale="Reds",
-        showscale=False,
-        name="Covariance Ellipsoid"
-    ))
+    fig.add_trace(
+        go.Surface(
+            x=ex,
+            y=ey,
+            z=ez,
+            opacity=0.2,
+            colorscale="Reds",
+            showscale=False,
+            name="Covariance Ellipsoid",
+        )
+    )
 
 fig.update_layout(
-    scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z'),
+    scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"),
     width=1000,
     height=800,
-    margin=dict(l=0, r=0, b=0, t=0)
+    margin=dict(l=0, r=0, b=0, t=0),
 )
 
 with col2:
