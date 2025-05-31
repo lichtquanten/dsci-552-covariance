@@ -70,46 +70,40 @@ def sget(name, default):
     return st.session_state.get(name, default)
 
 
+# Helper: Safe bounds for covariance
+def cov_bounds(v1, v2):
+    return -np.sqrt(v1 * v2), np.sqrt(v1 * v2)
+
+
+# Helper: Conditional covariance slider or message
+def conditional_cov_slider(label, key, var1, var2, default_val):
+    disabled = var1 == 0 or var2 == 0
+    if disabled:
+        st.slider(label, 0.0, 0.0, 0.0, disabled=True)
+        st.session_state[key] = 0.0
+        return 0.0
+    else:
+        min_val, max_val = cov_bounds(var1, var2)
+        return st.slider(
+            label,
+            float(min_val),
+            float(max_val),
+            float(sget(key, default_val)),
+            step=0.05,
+            key=key,
+        )
+
+
 with col1:
     st.header("Parameters")
 
-    # Variances
     var_x = st.slider("Variance X", 0.0, 5.0, sget("var_x", 1.0), step=0.1, key="var_x")
     var_y = st.slider("Variance Y", 0.0, 5.0, sget("var_y", 1.0), step=0.1, key="var_y")
     var_z = st.slider("Variance Z", 0.0, 5.0, sget("var_z", 1.0), step=0.1, key="var_z")
 
-    # Dynamic covariance bounds
-    def cov_bounds(v1, v2):
-        return -np.sqrt(v1 * v2), np.sqrt(v1 * v2)
-
-    min_xy, max_xy = cov_bounds(var_x, var_y)
-    min_xz, max_xz = cov_bounds(var_x, var_z)
-    min_yz, max_yz = cov_bounds(var_y, var_z)
-
-    cov_xy = st.slider(
-        "Covariance XY",
-        float(min_xy),
-        float(max_xy),
-        float(sget("cov_xy", 0.0)),
-        step=0.05,
-        key="cov_xy",
-    )
-    cov_xz = st.slider(
-        "Covariance XZ",
-        float(min_xz),
-        float(max_xz),
-        float(sget("cov_xz", 0.0)),
-        step=0.05,
-        key="cov_xz",
-    )
-    cov_yz = st.slider(
-        "Covariance YZ",
-        float(min_yz),
-        float(max_yz),
-        float(sget("cov_yz", 0.0)),
-        step=0.05,
-        key="cov_yz",
-    )
+    cov_xy = conditional_cov_slider("Covariance XY", "cov_xy", var_x, var_y, 0.0)
+    cov_xz = conditional_cov_slider("Covariance XZ", "cov_xz", var_x, var_z, 0.0)
+    cov_yz = conditional_cov_slider("Covariance YZ", "cov_yz", var_y, var_z, 0.0)
 
     n_points = st.slider(
         "Number of Points", 100, 2000, sget("n_points", 1000), step=100, key="n_points"
@@ -120,14 +114,14 @@ with col1:
             f"**Shape:** {selected_preset}  \n{PRESETS[selected_preset]['desc']}"
         )
 
-# Covariance matrix
+# Covariance matrix and mean
 cov_matrix = np.array(
     [[var_x, cov_xy, cov_xz], [cov_xy, var_y, cov_yz], [cov_xz, cov_yz, var_z]]
 )
 mean = np.zeros(3)
 
 
-# Check for singularity
+# Singularity explanation
 def explain_singularity(cov):
     reasons = []
     variances = np.diag(cov)
@@ -150,6 +144,7 @@ def explain_singularity(cov):
     return reasons
 
 
+# Check for positive definiteness
 try:
     np.linalg.cholesky(cov_matrix)
     singular = False
@@ -168,15 +163,15 @@ except np.linalg.LinAlgError:
             + "\n\nPoints will still be shown, but the ellipsoid cannot be rendered."
         )
 
-# Generate sample points
+# Sample from the distribution
 points = np.random.multivariate_normal(
     mean, cov_matrix, size=n_points, check_valid="warn", tol=1e-8
 )
 x, y, z = points.T
 
 
-# Ellipsoid generator
-def generate_ellipsoid(mean, cov, scale=2.0, n_points=40):
+# Ellipsoid generator (exaggerated scale)
+def generate_ellipsoid(mean, cov, scale=3.5, n_points=40):
     vals, vecs = np.linalg.eigh(cov)
     radii = np.sqrt(np.maximum(vals, 0)) * scale
     u = np.linspace(0, 2 * np.pi, n_points)
@@ -189,7 +184,7 @@ def generate_ellipsoid(mean, cov, scale=2.0, n_points=40):
     return ellipsoid[..., 0], ellipsoid[..., 1], ellipsoid[..., 2]
 
 
-# Create plot
+# Plot
 fig = go.Figure()
 
 fig.add_trace(
@@ -210,7 +205,7 @@ if not singular:
             x=ex,
             y=ey,
             z=ez,
-            opacity=0.2,
+            opacity=0.25,
             colorscale="Reds",
             showscale=False,
             name="Covariance Ellipsoid",
@@ -218,7 +213,12 @@ if not singular:
     )
 
 fig.update_layout(
-    scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"),
+    scene=dict(
+        xaxis_title="X",
+        yaxis_title="Y",
+        zaxis_title="Z",
+        aspectmode="data",  # important to preserve true shape
+    ),
     width=1000,
     height=800,
     margin=dict(l=0, r=0, b=0, t=0),
